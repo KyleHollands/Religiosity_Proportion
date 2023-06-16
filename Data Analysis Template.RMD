@@ -1,0 +1,170 @@
+---
+title: "Proportion of Population that is Religious/Spiritual"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(tidyr)
+library(rmarkdown)
+library(vcd)
+library(treemap)
+```
+
+### Load data
+
+```{r load-data}
+# Import the dataset
+religiosity_data <- read.csv("religion-survey-results.csv")
+
+# Identify the character columns
+char_cols <- sapply(religiosity_data, is.character)
+
+# Convert character columns to factors (if necessary) for easier analysis
+religiosity_data[char_cols] <- lapply(religiosity_data[char_cols], as.factor)
+```
+
+* * *
+
+## Part 1: Data 
+#### (Plan Phase of the PACE Framework)
+
+### How are the observations in the sample collected?
+The sample observations were gathered using SurveyMonkey and are assumed to be randomly selected. However, the specific details of the 
+data collection process remain unknown and therefore this analysis is for educational purposes only.
+
+* * *
+
+## Part 2: Research question 
+#### (Plan Phase of the PACE Framework)
+
+### Project Scope
+Begin by identifying the percentage of the observed samples that hold religious or spiritual beliefs. Next, assess whether this proportion 
+accurately reflects the larger population and whether the majority of individuals in this population are religious or spiritual.
+
+* * *
+
+## Part 3: Exploratory data analysis 
+#### (Analyze Phase of the PACE Framework)
+
+### Initial Investigation of the Dataset
+```{r eda}
+# Investigate the Dataset
+head(religiosity_data$What.is.your.present.religion..if.any.)
+tail(religiosity_data$What.is.your.present.religion..if.any.)
+
+# Investigate the Variables
+summary(religiosity_data$What.is.your.present.religion..if.any.)
+barplot(table(religiosity_data$What.is.your.present.religion..if.any.))
+```
+
+### Data Manipulation and Cleaning
+```{r format_clean}
+# Remove the first row, which includes a redundant Response header.
+religiosity_data_trimmed <- religiosity_data[-1, ]
+
+# Check for Missing Values
+sum(is.na(religiosity_data_trimmed))
+
+# Rename Column Header for Readability
+colnames(religiosity_data_trimmed) <- c("Identifies_as_Religious_or_Spiritual")
+
+# Keep columns for analysis
+religiosity_data_trimmed <- religiosity_data_trimmed %>%
+  select(c("Identifies_as_Religious_or_Spiritual"))
+
+# Rename values to Yes if religious or No if they identify as atheist
+religiosity_data_cleaned <- religiosity_data_trimmed %>%
+  mutate(
+    Identifies_as_Religious_or_Spiritual = case_match(
+      Identifies_as_Religious_or_Spiritual,
+      "Atheist" ~ "No",
+      "Agnostic" ~ "No",
+      .default = "Yes")
+  )
+
+# Visualize the cleaned data
+ggplot(religiosity_data_cleaned, aes(x = Identifies_as_Religious_or_Spiritual, fill = Identifies_as_Religious_or_Spiritual)) +
+  geom_bar() +
+  ggtitle("Proportion of Non-Religious/Spiritual to Religious/Spiritual") +
+  theme(legend.position = "none")
+
+ggplot(religiosity_data_cleaned, aes(x = Identifies_as_Religious_or_Spiritual, fill = Identifies_as_Religious_or_Spiritual)) +
+  geom_bar(width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = c("red", "blue", "green")) +
+  ggtitle("Proportion of Non-Religious/Spiritual to Religious/Spiritual")
+```
+
+### Conditions
+#### Confidence Interval for a Proportion
+1. Independence: 1039 < 10% of the Population, and SurveyMonkey responses were collected randomly.
+Whether one individual in the sample is religious is independent of another.
+
+2. Sample size / skew: 928 successes, 1039 - 928 = 111 failures
+Since the success-failure condition is met, we can assume that 
+the sampling distribution of the proportion is nearly normal.
+
+#### Hypothesis Test for a Proportion
+1. Independence: 1039 < 10% of the Population, and SurveyMonkey responses were collected randomly.
+Whether one individual in the sample has is religious is independent of another.
+
+2. Sample size / skew: 1039 x 0.5 = 519.50 > 10 
+S-F condition met → nearly normal sampling distribution
+
+```{r check_conditions}
+table(religiosity_data_cleaned$Identifies_as_Religious_or_Spiritual)
+prop.table(table(religiosity_data_cleaned$Identifies_as_Religious_or_Spiritual))
+```
+
+* * *
+
+## Part 4: Modeling/Inference 
+#### (Construct Phase of the PACE Framework)
+
+With a 95% confidence interval, we estimate that 87% to 91% of the population is associated with a religion.
+
+### Hypothesis Test (Binomial) and Confidence Intervals
+H0: p < 0.5
+HA: p > 0.5
+
+```{r hypothesis_test}
+# Calculate the margin of error for a 95% confidence interval
+(margin_of_error <- qnorm(0.975) * sqrt(0.7747834 * (1 - 0.7747834) / 1039))
+
+# Calculate Confidence Interval
+conf.int <- prop.test(x = 805, n = 1039, conf.level = 0.95)$conf.int
+conf.int
+
+# Perform a z-test for a proportion
+prop.test(805, 1039, p = 0.5, alternative = "greater")
+
+# Perform a binomial test for a proportion
+binom.test(805, 1039, p = 0.5, alternative = "greater")
+```
+
+With a 95% confidence interval, we estimate that 75% to 80% of the population is either Religious or Spiritual, with a 
+margin of error of approximately 2.5%.
+
+Since the p-value is less than the significance level of 0.05, we can reject the null hypothesis. 
+This means that we have sufficient evidence to conclude that the proportion of people that are religious
+or spiritual is greater than 50%, or the majority.
+
+* * *
+
+## Part 5: Prediction/Conclusion
+```{r predictions_conclusion}
+```
+
+### What Story does the Data Tell?
+The analysis of the population sample suggests that a majority of the people are religious or spiritual to some degree.
